@@ -17,7 +17,10 @@ from isar.mission_planner.mission_planner_interface import MissionPlannerInterfa
 from isar.models.communication.queues.queues import Queues
 from isar.models.map.map_config import MapConfig
 from isar.services.coordinates.transformation import Transformation
-from isar.services.readers.map_reader import MapConfigReader
+from isar.services.readers.map_reader import (
+    LocalMapConfigReader,
+    MapConfigReaderInterface,
+)
 from isar.services.service_connections.request_handler import RequestHandler
 from isar.services.service_connections.stid.stid_service import StidService
 from isar.services.utilities.scheduling_utilities import SchedulingUtilities
@@ -174,20 +177,33 @@ class ServiceModule(Module):
         return StidService(request_handler=request_handler)
 
 
-class ReaderModule(Module):
+class LocalReaderModule(Module):
     @provider
     @singleton
-    def provide_map_config_reader(self) -> MapConfigReader:
-        return MapConfigReader()
+    def provide_map_config_reader(self) -> MapConfigReaderInterface:
+        return LocalMapConfigReader()
+
+
+class ExternalReaderModule(Module):
+    @provider
+    @singleton
+    def provide_map_config_reader(self) -> MapConfigReaderInterface:
+        return LocalMapConfigReader()
 
 
 class CoordinateModule(Module):
     @provider
     @singleton
-    def provide_transform(self, map_config_reader: MapConfigReader) -> Transformation:
-        map_config: MapConfig = map_config_reader.get_map_config_by_name(
+    def provide_transform(
+        self, map_config_reader: MapConfigReaderInterface
+    ) -> Transformation:
+        # map_config: MapConfig = map_config_reader.get_map_config_by_name(
+        #    config.get("DEFAULT", "default_map")
+        # )
+        map_config: MapConfig = map_config_reader.get_map_config(
             config.get("DEFAULT", "default_map")
         )
+        print(f"HEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE: {map_config}")
         return Transformation(map_config=map_config)
 
 
@@ -196,7 +212,11 @@ modules: dict = {
     "authentication": {"default": AuthenticationModule},
     "coordinate": {"default": CoordinateModule},
     "queues": {"default": QueuesModule},
-    "reader": {"default": ReaderModule},
+    "reader": {
+        "default": LocalReaderModule,
+        "local": LocalReaderModule,
+        "external": ExternalReaderModule,
+    },
     "request_handler": {"default": RequestHandlerModule},
     "robot": {"default": RobotModule},
     "mission_planner": {
